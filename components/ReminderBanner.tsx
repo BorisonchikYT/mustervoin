@@ -12,82 +12,65 @@ function getStored(): ReminderState {
   return "unset";
 }
 
-export default function ReminderBanner({
-  todayMarked,
-}: {
-  todayMarked: boolean;
-}) {
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+export default function ReminderBanner({ todayMarked }: { todayMarked: boolean }) {
   const [visible, setVisible] = useState(false);
   const [state, setState] = useState<ReminderState>("unset");
-  const [now, setNow] = useState(0);
 
   useEffect(() => {
-    setState(getStored());
+    const stored = getStored();
+    setState(stored);
     const h = new Date().getHours();
-    setNow(h);
-    // Показываем баннер только если:
-    // - вечер (после 18:00)
-    // - сегодняшний день не отмечен
-    // - ещё не решал
     const isEvening = h >= 18 || h < 4;
-    if (isEvening && !todayMarked && getStored() === "unset") {
+    if (isEvening && !todayMarked && stored === "unset") {
       const t = setTimeout(() => setVisible(true), 1500);
       return () => clearTimeout(t);
     }
   }, [todayMarked]);
 
-  // Если разрешение уже получено и день не отмечен — показываем уведомление
-  useEffect(() => {
-    if (state !== "enabled") return;
-    if (todayMarked) return;
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-
-    const h = new Date().getHours();
-    const isEvening = h >= 18 || h < 4;
-    if (!isEvening) return;
-
-    const lastShown = Number(localStorage.getItem("mustervoin-reminder-last") || "0");
-    const nowTs = Date.now();
-    // Не чаще раза в 6 часов
-    if (nowTs - lastShown < 6 * 3600 * 1000) return;
-
-    try {
-      new Notification("MusterVoin", {
-        body: "Не забудь отметить сегодняшний день в книжке.",
-        icon: "/icon.svg",
-        tag: "mustervoin-daily",
-      });
-      localStorage.setItem("mustervoin-reminder-last", String(nowTs));
-    } catch {
-      // some browsers require service worker for notifications
-    }
-  }, [state, todayMarked]);
-
   async function enable() {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window)) {
+    setVisible(false);
+    const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!pub) {
       localStorage.setItem(STORAGE_KEY, "declined");
       setState("declined");
-      setVisible(false);
       return;
     }
-    const perm = await Notification.requestPermission();
-    if (perm === "granted") {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      localStorage.setItem(STORAGE_KEY, "declined");
+      setState("declined");
+      return;
+    }
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(pub),
+        });
+      }
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sub.toJSON()),
+      });
+      if (!res.ok) throw new Error("save failed");
       localStorage.setItem(STORAGE_KEY, "enabled");
       setState("enabled");
-      try {
-        new Notification("MusterVoin", {
-          body: "Готово. Буду напоминать вечером.",
-          icon: "/icon.svg",
-        });
-      } catch {}
-    } else {
+    } catch {
       localStorage.setItem(STORAGE_KEY, "declined");
       setState("declined");
     }
-    setVisible(false);
   }
 
   function decline() {

@@ -1,0 +1,13 @@
+name: Daily push
+on:
+  schedule:
+    - cron: "0 17 * * *"   # 17:00 UTC = 20:00 МСК
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger push endpoint
+        run: |
+          curl -fsS "https://mustervoin.netlify.app/api/push/send?secret=${{ secrets.CRON_SECRET }}"
