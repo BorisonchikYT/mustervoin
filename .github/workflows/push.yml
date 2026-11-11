@@ -1,7 +1,7 @@
 name: Daily push
 on:
   schedule:
-    - cron: "0 17 * * *"   # 17:00 UTC = 20:00 МСК
+    - cron: "0 15 * * *" 
   workflow_dispatch:
 
 jobs:
