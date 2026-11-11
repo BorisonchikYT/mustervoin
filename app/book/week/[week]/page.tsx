@@ -7,6 +7,7 @@ import { VIRTUES, computeCurrentWeek, todayDayIndex } from "@/lib/virtues";
 import BookClient from "@/components/BookClient";
 import WeekSwitcher from "@/components/WeekSwitcher";
 import WeekHeader from "@/components/WeekHeader";
+import ReminderBanner from "@/components/ReminderBanner";
 
 // @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
 export const dynamic = "force-dynamic";
@@ -75,6 +76,8 @@ export default async function WeekPage(props: { params: Promise<{ week: string }
         Строка считается чистой, когда все 7 дней явно отмечены ✓.
         Текущая неделя меняется, когда все 7 дней отмечены.
       </p>
+      
+      <ReminderBanner todayMarked={weekMarks.some((m: any) => m.day_index === today)} />
     </main>
   );
 }
