@@ -3,8 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { VIRTUES, currentWeekIndex, todayDayIndex } from "@/lib/virtues";
+import { VIRTUES, computeCurrentWeek, todayDayIndex } from "@/lib/virtues";
 import BookTable from "@/components/BookTable";
+import BookTableMobile from "@/components/BookTableMobile";
 import WeekSwitcher from "@/components/WeekSwitcher";
 import WeekHeader from "@/components/WeekHeader";
 
@@ -28,24 +29,23 @@ export default async function WeekPage({ params }: { params: { week: string } })
     cycle = (await sql`INSERT INTO cycles (user_id) VALUES (${uid}) RETURNING id, started_at`)[0];
   }
 
-  const currentWeek = currentWeekIndex(cycle.started_at);
-  const today = todayDayIndex();
-
-  const marks = await sql`
+  const allMarks = await sql`
     SELECT week_index, virtue_index, day_index, marked
-    FROM marks
-    WHERE cycle_id = ${cycle.id} AND week_index = ${weekNum}
+    FROM marks WHERE cycle_id = ${cycle.id}
   `;
 
+  const currentWeek = computeCurrentWeek(allMarks as any, cycle.started_at);
+  const today = todayDayIndex();
+  const weekMarks = allMarks.filter((m: any) => m.week_index === weekNum);
   const virtue = VIRTUES[Math.min(weekNum, 12)];
   const isCurrent = weekNum === currentWeek;
   const isPast = weekNum < currentWeek;
 
   return (
-    <main className="min-h-screen px-6 py-16 max-w-5xl mx-auto">
+    <main className="min-h-screen px-4 md:px-6 py-8 md:py-16 max-w-5xl mx-auto">
       <Link
         href="/dashboard"
-        className="text-xs uppercase tracking-[0.2em] text-neutral-500 hover:text-white transition-colors"
+        className="text-[10px] md:text-xs uppercase tracking-[0.2em] text-neutral-500 hover:text-white transition-colors"
       >
         ← Дашборд
       </Link>
@@ -65,14 +65,22 @@ export default async function WeekPage({ params }: { params: { week: string } })
         weekIndex={weekNum}
         currentWeek={currentWeek}
         todayIndex={today}
-        initialMarks={marks as { week_index: number; virtue_index: number; day_index: number; marked: boolean }[]}
+        initialMarks={weekMarks as any}
+        readonly={isPast}
+      />
+      <BookTableMobile
+        cycleId={cycle.id}
+        weekIndex={weekNum}
+        currentWeek={currentWeek}
+        todayIndex={today}
+        initialMarks={weekMarks as any}
         readonly={isPast}
       />
 
-      <p className="mt-8 text-xs text-neutral-600 leading-relaxed">
-        Точка ставится вечером, если за день ты нарушил правило. Строка «фокус недели» — та
-        дисциплина, которую ты тренируешь эту неделю. Все строки выше — уже освоенные правила,
-        они продолжают действовать.
+      <p className="mt-6 md:mt-8 text-[11px] md:text-xs text-neutral-600 leading-relaxed">
+        Клик по клетке: пусто → ✓ (проверено, чисто) → ● (нарушил) → пусто.
+        Строка считается чистой, когда все 7 дней явно отмечены ✓.
+        Текущая неделя меняется, когда все 7 дней отмечены.
       </p>
     </main>
   );
