@@ -1,8 +1,8 @@
-import { getServerSession } from "next-auth";
+﻿import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { currentWeekIndex } from "@/lib/virtues";
+import { computeCurrentWeek } from "@/lib/virtues";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,11 @@ export default async function BookRedirect() {
     cycle = (await sql`INSERT INTO cycles (user_id) VALUES (${uid}) RETURNING id, started_at`)[0];
   }
 
-  const week = currentWeekIndex(cycle.started_at);
+  const allMarks = await sql`
+    SELECT week_index, virtue_index, day_index, marked
+    FROM marks WHERE cycle_id = ${cycle.id}
+  `;
+
+  const week = computeCurrentWeek(allMarks as any, cycle.started_at);
   redirect(`/book/week/${week}`);
 }

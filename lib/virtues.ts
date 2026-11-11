@@ -1,4 +1,4 @@
-export type Virtue = { index: number; name: string; rule: string };
+﻿export type Virtue = { index: number; name: string; rule: string };
 
 export const VIRTUES: Virtue[] = [
   { index: 0,  name: "Воздержание", rule: "Не ешь до отупения, не пей до опьянения." },
@@ -19,15 +19,36 @@ export const VIRTUES: Virtue[] = [
 export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 export const DAYS_RU = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"] as const;
 
-/** Индекс текущей недели цикла (0..12) по дате старта. */
-export function currentWeekIndex(startedAt: string | Date): number {
-  const start = new Date(startedAt).getTime();
-  const now = Date.now();
-  const diffDays = Math.floor((now - start) / 86400000);
-  return Math.min(12, Math.max(0, Math.floor(diffDays / 7)));
-}
-
-/** Номер дня недели (0=Sun..6=Sat) для текущего момента. */
 export function todayDayIndex(): number {
   return new Date().getDay();
+}
+
+export function computeCurrentWeek(
+  marks: { week_index: number; day_index: number; virtue_index: number; marked: boolean }[],
+  cycleStartedAt: string | Date
+): number {
+  const start = new Date(cycleStartedAt).getTime();
+  const daysSinceStart = Math.floor((Date.now() - start) / 86400000);
+  const calendarCap = Math.min(12, Math.max(0, Math.floor(daysSinceStart / 7)));
+
+  for (let w = 0; w <= 12; w++) {
+    const weekMarks = marks.filter((m) => m.week_index === w);
+    const explicitlyMarkedDays = new Set(weekMarks.map((m) => m.day_index));
+    if (explicitlyMarkedDays.size < 7) {
+      return Math.min(w, calendarCap);
+    }
+  }
+  return 12;
+}
+
+export function activeDayIndex(
+  marks: { week_index: number; day_index: number }[],
+  weekIndex: number
+): number | null {
+  const weekMarks = marks.filter((m) => m.week_index === weekIndex);
+  const markedDays = new Set(weekMarks.map((m) => m.day_index));
+  for (let d = 0; d < 7; d++) {
+    if (!markedDays.has(d)) return d;
+  }
+  return null;
 }

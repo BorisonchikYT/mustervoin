@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Inter, Cinzel } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
@@ -8,7 +8,17 @@ const cinzel = Cinzel({ subsets: ["latin"], variable: "--font-cinzel", weight: [
 
 export const metadata: Metadata = {
   title: "MusterVoin",
-  description: "13 дисциплин Франклина",
+  description: "13 дисциплин Франклина — практика ежедневной рефлексии.",
+  manifest: "/manifest.json",
+  appleWebApp: { capable: true, title: "MusterVoin", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#050505",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
