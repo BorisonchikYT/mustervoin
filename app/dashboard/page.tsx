@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { VIRTUES } from "@/lib/virtues";
+import { VIRTUES, currentWeekIndex } from "@/lib/virtues";
+import DashboardHero from "@/components/DashboardHero";
 
 export const dynamic = "force-dynamic";
 
@@ -22,44 +23,26 @@ export default async function Dashboard() {
     cycle = (await sql`INSERT INTO cycles (user_id) VALUES (${uid}) RETURNING id, started_at, completed`)[0];
   }
 
-  const marks = await sql`
-    SELECT virtue_index, day_index, marked FROM marks WHERE cycle_id = ${cycle.id}
+  const week = currentWeekIndex(cycle.started_at);
+
+  const weekMarks = await sql`
+    SELECT virtue_index, day_index, marked
+    FROM marks
+    WHERE cycle_id = ${cycle.id} AND week_index = ${week} AND marked = true
   `;
 
-  const violationCount = (v: number) => marks.filter((m) => m.virtue_index === v && m.marked).length;
-  let currentWeek = 0;
-  for (let v = 0; v < 13; v++) {
-    if (violationCount(v) > 0) { currentWeek = v; break; }
-  }
-  const virtue = VIRTUES[currentWeek];
+  const totalViolations = weekMarks.length;
+  const virtue = VIRTUES[week];
 
   return (
-    <main className="min-h-screen px-6 py-16 max-w-4xl mx-auto">
-      <div className="flex items-baseline justify-between mb-12">
-        <h1 className="font-[family-name:var(--font-cinzel)] text-4xl text-white">MusterVoin</h1>
-        <Link href="/virtues" className="text-sm text-neutral-400 hover:text-white">Дисциплины →</Link>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-          <p className="text-xs uppercase tracking-widest text-neutral-500">Цикл</p>
-          <p className="mt-2 text-white">{new Date(cycle.started_at).toLocaleDateString("ru-RU")}</p>
-        </div>
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-          <p className="text-xs uppercase tracking-widest text-neutral-500">Текущая неделя</p>
-          <p className="mt-2 text-white">#{currentWeek + 1} — {virtue.name}</p>
-        </div>
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-          <p className="text-xs uppercase tracking-widest text-neutral-500">Освоено</p>
-          <p className="mt-2 text-white">{currentWeek} / 13</p>
-        </div>
-      </div>
-
-      <p className="text-neutral-400 mb-8 italic">«{virtue.rule}»</p>
-
-      <Link href="/book" className="inline-block px-8 py-3 rounded-full bg-white text-black font-medium hover:bg-neutral-200 transition">
-        Открыть книжку →
-      </Link>
-    </main>
+    <DashboardHero
+      startedAt={String(cycle.started_at)}
+      week={week}
+      totalWeeks={13}
+      virtueIndex={virtue.index}
+      virtueName={virtue.name}
+      virtueRule={virtue.rule}
+      weekViolations={totalViolations}
+    />
   );
 }
