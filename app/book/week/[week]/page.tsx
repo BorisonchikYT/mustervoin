@@ -9,9 +9,11 @@ import BookTableMobile from "@/components/BookTableMobile";
 import WeekSwitcher from "@/components/WeekSwitcher";
 import WeekHeader from "@/components/WeekHeader";
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
 export const dynamic = "force-dynamic";
 
-export default async function WeekPage({ params }: { params: { week: string } }) {
+export default async function WeekPage(props: { params: Promise<{ week: string }> }) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   const uid = (session?.user as { id?: string } | undefined)?.id;
   if (!uid) redirect("/login");

@@ -1,10 +1,11 @@
-﻿import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { VIRTUES } from "@/lib/virtues";
 import CycleComplete from "@/components/CycleComplete";
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
 export const dynamic = "force-dynamic";
 
 export default async function CompletePage() {

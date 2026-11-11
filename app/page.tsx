@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import LandingHero from "@/components/LandingHero";
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
 export default async function Home() {
   const session = await getServerSession(authOptions);
   if (session) redirect("/dashboard");

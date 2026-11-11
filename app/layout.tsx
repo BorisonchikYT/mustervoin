@@ -1,8 +1,9 @@
-﻿import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Cinzel } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" });
 const cinzel = Cinzel({ subsets: ["latin"], variable: "--font-cinzel", weight: ["400", "600", "700"] });
 

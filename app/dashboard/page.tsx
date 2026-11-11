@@ -1,4 +1,4 @@
-﻿import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
@@ -6,6 +6,7 @@ import { VIRTUES, computeCurrentWeek } from "@/lib/virtues";
 import { computeStreak, weekViolations, isCycleComplete } from "@/lib/stats";
 import DashboardHero from "@/components/DashboardHero";
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
