@@ -29,7 +29,7 @@ export default function ReminderBanner({ todayMarked }: { todayMarked: boolean }
     const stored = getStored();
     setState(stored);
     const h = new Date().getHours();
-    const isEvening = h >= 18 || h < 4;
+    const isEvening = true;
     if (isEvening && !todayMarked && stored === "unset") {
       const t = setTimeout(() => setVisible(true), 1500);
       return () => clearTimeout(t);
