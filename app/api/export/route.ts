@@ -3,34 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { VIRTUES } from "@/lib/virtues";
+import ExcelJS from "exceljs";
 
 export const dynamic = "force-dynamic";
 
 const DAYS_RU: Record<number, string> = {
-  0: "Воскресенье",
-  1: "Понедельник",
-  2: "Вторник",
-  3: "Среда",
-  4: "Четверг",
-  5: "Пятница",
-  6: "Суббота",
+  0: "Воскресенье", 1: "Понедельник", 2: "Вторник", 3: "Среда",
+  4: "Четверг", 5: "Пятница", 6: "Суббота",
 };
-
-function fmtDate(d: string | Date): string {
-  const date = new Date(d);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  return `${dd}.${mm}.${yyyy}`;
-}
-
-function escapeCell(value: string): string {
-  // Если в значении есть ; " или перенос строки — оборачиваем в кавычки и удваиваем кавычки
-  if (/[;"\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -43,17 +23,21 @@ export async function GET() {
     ORDER BY started_at DESC LIMIT 1
   `)[0];
 
-  const header = [
-    "Начало цикла",
-    "Неделя",
-    "Дисциплина",
-    "День",
-    "Отметка",
-    "Дата записи",
-  ].join(";");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("MusterVoin", {
+    views: [{ state: "frozen", ySplit: 1 }], // Закрепляем шапку
+  });
 
-  let rows = "";
+  // 1. Заголовки (жирные, с фоном)
+  const headers = ["Начало цикла", "Неделя", "Дисциплина", "День", "Отметка", "Дата записи"];
+  sheet.addRow(headers);
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F1F1F" } }; // Темный фон
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+  headerRow.height = 24;
 
+  // 2. Данные
   if (cycle) {
     const marks = (await sql`
       SELECT week_index, virtue_index, day_index, marked, updated_at
@@ -66,28 +50,76 @@ export async function GET() {
       const virtue = VIRTUES[r.virtue_index]?.name ?? "—";
       const day = DAYS_RU[r.day_index] ?? "—";
       const status = r.marked ? "нарушил" : "чисто";
-      const cells = [
-        fmtDate(cycle.started_at),
-        String(r.week_index + 1),
+      
+      // Форматируем даты как объекты Date для Excel
+      const startDate = new Date(cycle.started_at);
+      const recordDate = new Date(r.updated_at);
+
+      const row = sheet.addRow([
+        startDate,
+        r.week_index + 1,
         virtue,
         day,
         status,
-        fmtDate(r.updated_at),
-      ];
-      rows += cells.map(escapeCell).join(";") + "\r\n";
+        recordDate,
+      ]);
+
+      // Выравнивание по центру для всех, кроме Дисциплины
+      row.getCell(1).alignment = { horizontal: "center" };
+      row.getCell(2).alignment = { horizontal: "center" };
+      row.getCell(4).alignment = { horizontal: "center" };
+      row.getCell(5).alignment = { horizontal: "center" };
+      row.getCell(6).alignment = { horizontal: "center" };
+
+      // Красим статус: нарушил = красный, чисто = зеленый
+      const statusCell = row.getCell(5);
+      if (r.marked) {
+        statusCell.font = { color: { argb: "FFEF4444" }, bold: true };
+      } else {
+        statusCell.font = { color: { argb: "FF22C55E" }, bold: true };
+      }
+
+      // Формат дат
+      row.getCell(1).numFmt = "dd.mm.yyyy";
+      row.getCell(6).numFmt = "dd.mm.yyyy";
     }
   }
 
-  // BOM + CRLF — чтобы Excel (Windows, русская локаль) открыл как таблицу
-  const csv = "\uFEFF" + header + "\r\n" + rows;
+  // 3. Ширина колонок и границы
+  sheet.columns = [
+    { width: 14 }, // Начало
+    { width: 8 },  // Неделя
+    { width: 22 }, // Дисциплина
+    { width: 16 }, // День
+    { width: 12 }, // Отметка
+    { width: 14 }, // Дата записи
+  ];
 
-  const filename = `mustervoin-${new Date().toISOString().slice(0, 10)}.csv`;
+  sheet.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF333333" } },
+        left: { style: "thin", color: { argb: "FF333333" } },
+        bottom: { style: "thin", color: { argb: "FF333333" } },
+        right: { style: "thin", color: { argb: "FF333333" } },
+      };
+    });
+  });
 
-  return new NextResponse(csv, {
+  // 4. Автофильтр
+  sheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: 6 },
+  };
+
+  // 5. Генерация и ответ
+  const buffer = await workbook.xlsx.writeBuffer();
+  const filename = `mustervoin-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  return new NextResponse(buffer, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
     },
   });
 }
