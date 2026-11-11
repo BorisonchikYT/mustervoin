@@ -1,79 +1,28 @@
-﻿"use client";
-import { useState } from "react";
+"use client";
 import { motion, AnimatePresence } from "framer-motion";
 import { VIRTUES, DAYS, DAYS_RU } from "@/lib/virtues";
-
-type Mark = { week_index: number; virtue_index: number; day_index: number; marked: boolean };
+import type { MarkState } from "./BookClient";
 
 type Props = {
-  cycleId: string;
   weekIndex: number;
   currentWeek: number;
   todayIndex: number;
-  initialMarks: Mark[];
-  readonly?: boolean;
+  marks: { week_index: number; virtue_index: number; day_index: number; marked: boolean }[];
+  stateOf: (v: number, d: number) => MarkState;
+  canEdit: (v: number, d: number) => boolean;
+  onCycle: (v: number, d: number) => void;
 };
 
-type State = "empty" | "clean" | "violation";
-
 export default function BookTable({
-  cycleId,
   weekIndex,
   currentWeek,
   todayIndex,
-  initialMarks,
-  readonly = false,
+  stateOf,
+  canEdit,
+  onCycle,
 }: Props) {
-  const [marks, setMarks] = useState<Mark[]>(initialMarks);
   const isCurrentWeek = weekIndex === currentWeek;
   const isPastWeek = weekIndex < currentWeek;
-  const isFutureWeek = weekIndex > currentWeek;
-
-  const stateOf = (v: number, d: number): State => {
-    const m = marks.find(
-      (m) => m.week_index === weekIndex && m.virtue_index === v && m.day_index === d
-    );
-    if (!m) return "empty";
-    return m.marked ? "violation" : "clean";
-  };
-
-  const editableVirtue = (v: number) => {
-    if (readonly) return false;
-    if (!isCurrentWeek) return false;
-    return v <= currentWeek;
-  };
-
-  const editableDay = (d: number) => {
-    if (!isCurrentWeek) return false;
-    return d <= todayIndex;
-  };
-
-  async function cycle(v: number, d: number) {
-    if (!editableVirtue(v) || !editableDay(d)) return;
-    const current = stateOf(v, d);
-    const next: State = current === "empty" ? "clean" : current === "clean" ? "violation" : "empty";
-
-    setMarks((prev) => {
-      const filtered = prev.filter(
-        (m) => !(m.week_index === weekIndex && m.virtue_index === v && m.day_index === d)
-      );
-      if (next === "empty") return filtered;
-      filtered.push({ week_index: weekIndex, virtue_index: v, day_index: d, marked: next === "violation" });
-      return filtered;
-    });
-
-    await fetch("/api/marks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cycleId,
-        weekIndex,
-        virtueIndex: v,
-        dayIndex: d,
-        mode: "cycle",
-      }),
-    });
-  }
 
   const rowStats = (v: number) => {
     let violations = 0;
@@ -129,7 +78,7 @@ export default function BookTable({
             const pure = stats.violations === 0 && stats.empty === 0;
             const isActiveDiscipline = isCurrentWeek && v.index === currentWeek;
             const isFutureDiscipline = isCurrentWeek && v.index > currentWeek;
-            const locked = !editableVirtue(v.index);
+            const editable = canEdit(v.index, todayIndex);
 
             return (
               <motion.tr
@@ -142,7 +91,7 @@ export default function BookTable({
                     ? "bg-amber-300/[0.04]"
                     : isFutureDiscipline
                     ? "opacity-30"
-                    : locked && isPastWeek
+                    : !editable && isPastWeek
                     ? "opacity-70"
                     : ""
                 }`}
@@ -179,18 +128,18 @@ export default function BookTable({
                   const s = stateOf(v.index, d);
                   const isToday = isCurrentWeek && d === todayIndex;
                   const isFutureDay = isCurrentWeek && d > todayIndex;
-                  const canClick = editableVirtue(v.index) && editableDay(d);
+                  const can = canEdit(v.index, d);
 
                   return (
                     <td key={d} className="p-2 text-center">
                       <button
-                        onClick={() => cycle(v.index, d)}
-                        disabled={!canClick}
+                        onClick={() => onCycle(v.index, d)}
+                        disabled={!can}
                         aria-label={`${v.name} ${DAYS_RU[d]}: ${s}`}
                         className={`relative w-11 h-11 rounded-xl border flex items-center justify-center transition-all duration-300 ${
                           isToday ? "border-amber-300/40 bg-amber-300/[0.06]" : "border-white/10"
                         } ${
-                          canClick
+                          can
                             ? "hover:border-white/40 hover:bg-white/[0.05] cursor-pointer"
                             : "cursor-not-allowed"
                         } ${isFutureDay && s === "empty" ? "opacity-30" : ""}`}
@@ -218,7 +167,7 @@ export default function BookTable({
                               <path d="M3 8.5L6.5 12L13 4.5" stroke="rgba(52,211,153,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </motion.svg>
                           )}
-                          {s === "empty" && isToday && canClick && (
+                          {s === "empty" && isToday && can && (
                             <motion.span
                               key="pulse"
                               initial={{ opacity: 0 }}

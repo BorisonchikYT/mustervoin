@@ -1,60 +1,25 @@
-﻿"use client";
-import { useState } from "react";
+"use client";
 import { motion, AnimatePresence } from "framer-motion";
 import { VIRTUES, DAYS_RU } from "@/lib/virtues";
-
-type Mark = { week_index: number; virtue_index: number; day_index: number; marked: boolean };
-type State = "empty" | "clean" | "violation";
+import type { MarkState } from "./BookClient";
 
 export default function BookTableMobile({
-  cycleId,
   weekIndex,
   currentWeek,
   todayIndex,
-  initialMarks,
-  readonly = false,
+  stateOf,
+  canEdit,
+  onCycle,
 }: {
-  cycleId: string;
   weekIndex: number;
   currentWeek: number;
   todayIndex: number;
-  initialMarks: Mark[];
-  readonly?: boolean;
+  marks: { week_index: number; virtue_index: number; day_index: number; marked: boolean }[];
+  stateOf: (v: number, d: number) => MarkState;
+  canEdit: (v: number, d: number) => boolean;
+  onCycle: (v: number, d: number) => void;
 }) {
-  const [marks, setMarks] = useState<Mark[]>(initialMarks);
   const isCurrentWeek = weekIndex === currentWeek;
-
-  const stateOf = (v: number, d: number): State => {
-    const m = marks.find(
-      (m) => m.week_index === weekIndex && m.virtue_index === v && m.day_index === d
-    );
-    if (!m) return "empty";
-    return m.marked ? "violation" : "clean";
-  };
-
-  const canEdit = (v: number, d: number) =>
-    !readonly && isCurrentWeek && v <= currentWeek && d <= todayIndex;
-
-  async function cycle(v: number, d: number) {
-    if (!canEdit(v, d)) return;
-    const current = stateOf(v, d);
-    const next: State = current === "empty" ? "clean" : current === "clean" ? "violation" : "empty";
-
-    setMarks((prev) => {
-      const filtered = prev.filter(
-        (m) => !(m.week_index === weekIndex && m.virtue_index === v && m.day_index === d)
-      );
-      if (next === "empty") return filtered;
-      filtered.push({ week_index: weekIndex, virtue_index: v, day_index: d, marked: next === "violation" });
-      return filtered;
-    });
-
-    await fetch("/api/marks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cycleId, weekIndex, virtueIndex: v, dayIndex: d, mode: "cycle" }),
-    });
-  }
 
   return (
     <div className="md:hidden space-y-3">
@@ -117,7 +82,7 @@ export default function BookTableMobile({
                 return (
                   <div key={d} className="flex flex-col items-center gap-1">
                     <button
-                      onClick={() => cycle(v.index, d)}
+                      onClick={() => onCycle(v.index, d)}
                       disabled={!editable}
                       aria-label={`${v.name} ${label}: ${s}`}
                       className={`w-full aspect-square rounded-xl border flex items-center justify-center transition-all ${

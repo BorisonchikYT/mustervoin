@@ -4,8 +4,7 @@ import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { VIRTUES, computeCurrentWeek, todayDayIndex } from "@/lib/virtues";
-import BookTable from "@/components/BookTable";
-import BookTableMobile from "@/components/BookTableMobile";
+import BookClient from "@/components/BookClient";
 import WeekSwitcher from "@/components/WeekSwitcher";
 import WeekHeader from "@/components/WeekHeader";
 
@@ -62,22 +61,14 @@ export default async function WeekPage(props: { params: Promise<{ week: string }
 
       <WeekSwitcher currentWeek={currentWeek} shownWeek={weekNum} />
 
-      <BookTable
+      <BookClient
         cycleId={cycle.id}
         weekIndex={weekNum}
         currentWeek={currentWeek}
         todayIndex={today}
         initialMarks={weekMarks as any}
         readonly={isPast}
-      />
-      <BookTableMobile
-        cycleId={cycle.id}
-        weekIndex={weekNum}
-        currentWeek={currentWeek}
-        todayIndex={today}
-        initialMarks={weekMarks as any}
-        readonly={isPast}
-      />
+        />
 
       <p className="mt-6 md:mt-8 text-[11px] md:text-xs text-neutral-600 leading-relaxed">
         Клик по клетке: пусто → ✓ (проверено, чисто) → ● (нарушил) → пусто.
